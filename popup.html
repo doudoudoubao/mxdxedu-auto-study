@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>慕课自动刷课助手</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #333;
+    }
+    
+    .container {
+      padding: 16px;
+    }
+    
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 16px;
+    }
+    
+    .header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .header p {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .status-section {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    
+    .status-label {
+      font-size: 14px;
+      color: #666;
+    }
+    
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ccc;
+    }
+    
+    .status-dot.active {
+      background: #4ade80;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .settings-group {
+      margin-bottom: 12px;
+    }
+    
+    .settings-group:last-child {
+      margin-bottom: 0;
+    }
+    
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .setting-row:last-child {
+      border-bottom: none;
+    }
+    
+    .setting-label {
+      font-size: 13px;
+      color: #555;
+    }
+    
+    .setting-input {
+      width: 60px;
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 13px;
+      text-align: center;
+    }
+    
+    .setting-input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+    }
+    
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.3s;
+      border-radius: 24px;
+    }
+    
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+    
+    .toggle-switch input:checked + .toggle-slider {
+      background-color: #667eea;
+    }
+    
+    .toggle-switch input:checked + .toggle-slider:before {
+      transform: translateX(20px);
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-start {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .btn-start:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-stop {
+      background: #ff6b6b;
+      color: white;
+    }
+    
+    .btn-stop:hover {
+      background: #ee5a5a;
+    }
+    
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    
+    .stat-item {
+      text-align: center;
+      padding: 8px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #667eea;
+    }
+    
+    .stat-label {
+      font-size: 11px;
+      color: #888;
+      margin-top: 2px;
+    }
+    
+    .footer {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 11px;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>慕课自动刷课助手</h1>
+      <p>自动播放 · 自动下一集 · 防检测</p>
+    </div>
+    
+    <div class="card">
+      <div class="status-section">
+        <span class="status-label">运行状态</span>
+        <div class="status-indicator">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">未运行</span>
+        </div>
+      </div>
+      
+      <div class="settings-group">
+        <div class="setting-row">
+          <span class="setting-label">自动播放</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="autoPlay" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-row">
+          <span class="setting-label">自动下一集</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="autoNext" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-row">
+          <span class="setting-label">静音播放</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="muteVideo">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-row">
+          <span class="setting-label">播放倍速</span>
+          <input type="number" class="setting-input" id="playbackRate" value="1" min="1" max="4" step="0.5">
+        </div>
+        
+        <div class="setting-row">
+          <span class="setting-label">切换延迟(秒)</span>
+          <input type="number" class="setting-input" id="switchDelay" value="3" min="1" max="30">
+        </div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <div class="stats">
+        <div class="stat-item">
+          <div class="stat-value" id="completedCount">0</div>
+          <div class="stat-label">已完成集数</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="runTime">0</div>
+          <div class="stat-label">运行时间(分)</div>
+        </div>
+      </div>
+    </div>
+    
+    <button class="btn btn-start" id="startBtn">开始刷课</button>
+    
+    <div class="footer">请在课程页面使用本插件</div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
