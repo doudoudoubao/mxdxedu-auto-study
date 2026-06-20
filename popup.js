@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const statusText = document.getElementById('statusText');
   const autoPlay = document.getElementById('autoPlay');
   const autoNext = document.getElementById('autoNext');
+  const skipCompleted = document.getElementById('skipCompleted');
   const muteVideo = document.getElementById('muteVideo');
   const playbackRate = document.getElementById('playbackRate');
   const switchDelay = document.getElementById('switchDelay');
@@ -16,12 +17,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // 加载保存的设置
   const saved = await chrome.storage.local.get([
-    'autoPlay', 'autoNext', 'muteVideo', 'playbackRate', 'switchDelay',
+    'autoPlay', 'autoNext', 'skipCompleted', 'muteVideo', 'playbackRate', 'switchDelay',
     'isRunning', 'completedCount', 'startTime'
   ]);
   
   autoPlay.checked = saved.autoPlay !== false;
   autoNext.checked = saved.autoNext !== false;
+  skipCompleted.checked = saved.skipCompleted !== false;
   muteVideo.checked = saved.muteVideo || false;
   playbackRate.value = saved.playbackRate || 1;
   switchDelay.value = saved.switchDelay || 3;
@@ -42,6 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.storage.local.set({
       autoPlay: autoPlay.checked,
       autoNext: autoNext.checked,
+      skipCompleted: skipCompleted.checked,
       muteVideo: muteVideo.checked,
       playbackRate: parseFloat(playbackRate.value),
       switchDelay: parseInt(switchDelay.value)
@@ -99,6 +102,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           settings: {
             autoPlay: autoPlay.checked,
             autoNext: autoNext.checked,
+            skipCompleted: skipCompleted.checked,
             muteVideo: muteVideo.checked,
             playbackRate: parseFloat(playbackRate.value),
             switchDelay: parseInt(switchDelay.value)
@@ -120,7 +124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   
   // 设置变更时保存
-  [autoPlay, autoNext, muteVideo].forEach(el => {
+  [autoPlay, autoNext, skipCompleted, muteVideo].forEach(el => {
     el.addEventListener('change', saveSettings);
   });
   

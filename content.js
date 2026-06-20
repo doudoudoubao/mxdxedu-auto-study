@@ -5,6 +5,7 @@
   let settings = {
     autoPlay: true,
     autoNext: true,
+    skipCompleted: true,
     muteVideo: false,
     playbackRate: 1,
     switchDelay: 3
@@ -13,10 +14,56 @@
   let videoObserver = null;
   let completionTimer = null;
   let currentVideoSrc = '';
+  let completedVideos = new Set();
   
   // 日志函数
   function log(msg) {
     console.log(`[慕课助手] ${msg}`);
+  }
+  
+  // 获取当前视频标识
+  function getVideoId() {
+    // 尝试多种方式获取视频标识
+    const video = findVideo();
+    if (video) {
+      // 使用视频src作为标识
+      if (video.src) return video.src;
+      if (video.currentSrc) return video.currentSrc;
+    }
+    
+    // 使用页面URL作为标识
+    return window.location.href;
+  }
+  
+  // 加载已完成视频列表
+  async function loadCompletedVideos() {
+    try {
+      const result = await chrome.storage.local.get(['completedVideos']);
+      if (result.completedVideos) {
+        completedVideos = new Set(result.completedVideos);
+        log(`已加载 ${completedVideos.size} 个已完成视频`);
+      }
+    } catch (e) {
+      log('加载已完成视频失败: ' + e.message);
+    }
+  }
+  
+  // 保存已完成视频
+  async function saveCompletedVideo(videoId) {
+    try {
+      completedVideos.add(videoId);
+      await chrome.storage.local.set({ 
+        completedVideos: Array.from(completedVideos)
+      });
+      log(`已保存视频完成状态: ${videoId.substring(0, 50)}...`);
+    } catch (e) {
+      log('保存视频完成状态失败: ' + e.message);
+    }
+  }
+  
+  // 检查视频是否已完成
+  function isVideoCompleted(videoId) {
+    return completedVideos.has(videoId);
   }
   
   // 查找视频元素
@@ -61,6 +108,20 @@
     log('设置视频属性');
     video.dataset.autoSetup = 'true';
     
+    // 检查是否需要跳过已播放视频
+    if (settings.skipCompleted) {
+      const videoId = getVideoId();
+      if (isVideoCompleted(videoId)) {
+        log('视频已播放过，准备跳过');
+        if (settings.autoNext) {
+          setTimeout(() => {
+            goToNextVideo();
+          }, 1000);
+          return;
+        }
+      }
+    }
+    
     // 静音
     if (settings.muteVideo) {
       video.muted = true;
@@ -86,10 +147,24 @@
     video.addEventListener('ended', () => {
       if (isRunning && settings.autoNext) {
         log('视频播放完成，准备切换下一集');
+        // 保存已完成视频
+        saveCompletedVideo(getVideoId());
         notifyVideoCompleted();
         setTimeout(() => {
           goToNextVideo();
         }, settings.switchDelay * 1000);
+      }
+    });
+    
+    // 监听视频进度（用于检测接近完成）
+    video.addEventListener('timeupdate', () => {
+      if (isRunning && video.duration > 0) {
+        const progress = video.currentTime / video.duration;
+        // 当进度超过95%时，标记为即将完成
+        if (progress > 0.95 && !video.dataset.nearComplete) {
+          video.dataset.nearComplete = 'true';
+          log('视频即将完成 (进度: ' + Math.round(progress * 100) + '%)');
+        }
       }
     });
     
@@ -116,6 +191,8 @@
   
   // 通知视频完成
   function notifyVideoCompleted() {
+    // 保存已完成视频
+    saveCompletedVideo(getVideoId());
     chrome.runtime.sendMessage({ type: 'videoCompleted' });
   }
   
@@ -153,6 +230,13 @@
           text === '下一节' || text.includes('下一') || text === 'Next') {
         log('找到下一集按钮: ' + text);
         el.click();
+        
+        // 跳过已播放功能：检查下一集是否也已播放
+        if (settings.skipCompleted) {
+          setTimeout(() => {
+            checkAndSkipCompleted();
+          }, 2000);
+        }
         return;
       }
     }
@@ -164,6 +248,13 @@
         if (el) {
           log('找到下一集元素: ' + selector);
           el.click();
+          
+          // 跳过已播放功能：检查下一集是否也已播放
+          if (settings.skipCompleted) {
+            setTimeout(() => {
+              checkAndSkipCompleted();
+            }, 2000);
+          }
           return;
         }
       } catch (e) {
@@ -179,11 +270,31 @@
         const link = nextItem.querySelector('a') || nextItem;
         log('通过列表顺序切换');
         link.click();
+        
+        // 跳过已播放功能：检查下一集是否也已播放
+        if (settings.skipCompleted) {
+          setTimeout(() => {
+            checkAndSkipCompleted();
+          }, 2000);
+        }
         return;
       }
     }
     
     log('未找到下一集按钮');
+  }
+  
+  // 检查并跳过已播放视频
+  function checkAndSkipCompleted() {
+    if (!isRunning || !settings.skipCompleted) return;
+    
+    const videoId = getVideoId();
+    if (isVideoCompleted(videoId)) {
+      log('检测到下一集已播放过，继续跳过');
+      setTimeout(() => {
+        goToNextVideo();
+      }, 1000);
+    }
   }
   
   // 防检测：模拟人类行为
@@ -271,7 +382,7 @@
   }
   
   // 启动自动播放
-  function startAutoPlay(newSettings) {
+  async function startAutoPlay(newSettings) {
     if (isRunning) return;
     
     isRunning = true;
@@ -279,6 +390,9 @@
     
     log('启动自动播放');
     log('设置: ' + JSON.stringify(settings));
+    
+    // 加载已完成视频列表
+    await loadCompletedVideos();
     
     // 保存设置
     chrome.storage.local.set({ isRunning: true, settings });
