@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const startBtn = document.getElementById('startBtn');
+  const clearBtn = document.getElementById('clearBtn');
   const statusDot = document.getElementById('statusDot');
   const statusText = document.getElementById('statusText');
   const autoPlay = document.getElementById('autoPlay');
@@ -130,5 +131,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   [playbackRate, switchDelay].forEach(el => {
     el.addEventListener('change', saveSettings);
+  });
+  
+  // 清除播放记录按钮
+  clearBtn.addEventListener('click', async () => {
+    if (confirm('确定要清除所有播放记录吗？')) {
+      await chrome.storage.local.set({ completedVideos: [] });
+      alert('播放记录已清除');
+    }
   });
 });
