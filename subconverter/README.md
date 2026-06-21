@@ -150,6 +150,79 @@ subconverter/
 
 ---
 
+## 🖥️ 部署到 VPS
+
+本项目零依赖，部署非常简单。下面给出两种方式，任选其一。
+
+### 准备工作
+- 一台能联网的 VPS（Ubuntu / Debian 为例）
+- 一个已解析到 VPS 公网 IP 的域名（用于 HTTPS，可选但强烈建议）
+
+### 方式 A：systemd 直接运行（推荐，最轻量）
+
+```bash
+# 1. 安装 Node.js 18+（这里装 22）
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
+sudo apt-get install -y nodejs git nginx
+
+# 2. 拉取代码到 /opt/subconverter
+sudo git clone https://github.com/doudoudoubao/mxdxedu-auto-study.git /tmp/repo
+sudo cp -r /tmp/repo/subconverter /opt/subconverter
+
+# 3. 先手动测试能否启动
+cd /opt/subconverter && node server.js     # 看到“服务已启动”后按 Ctrl+C 退出
+npm test                                    # 可选：跑自测
+
+# 4. 配置为后台常驻服务（开机自启 + 崩溃自动重启）
+sudo cp /opt/subconverter/deploy/subconverter.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now subconverter
+sudo systemctl status subconverter          # 确认 active (running)
+```
+
+此时服务监听在 `127.0.0.1:25500`（仅本机）。接着用 Nginx 反代 + HTTPS 对外：
+
+```bash
+# 5. 配置 Nginx 反向代理（先把示例里的域名改成你自己的）
+sudo cp /opt/subconverter/deploy/nginx.conf.example /etc/nginx/conf.d/subconverter.conf
+sudo vim /etc/nginx/conf.d/subconverter.conf   # 把 sub.example.com 改成你的域名
+sudo nginx -t && sudo systemctl reload nginx
+
+# 6. 申请免费 HTTPS 证书（自动配置 443 与跳转）
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d sub.example.com
+```
+
+完成后访问 `https://sub.example.com/` 即是网页界面，订阅端点为
+`https://sub.example.com/sub?url=<订阅地址>&target=clash`。
+
+> **更新代码**：`cd /opt/subconverter && sudo git pull`（若用上面的 cp 方式则重新 cp），再 `sudo systemctl restart subconverter`。
+
+### 方式 B：Docker
+
+```bash
+# 安装 docker 后，在项目目录执行：
+cd subconverter
+docker compose up -d            # 后台启动，监听 0.0.0.0:25500
+
+docker compose logs -f          # 查看日志
+docker compose down             # 停止
+```
+
+容器直接对外暴露 `25500` 端口。生产环境同样建议在前面加 Nginx + HTTPS（参考方式 A 的第 5、6 步，反代到 `127.0.0.1:25500`）。
+
+### 防火墙 / 安全组
+- 若用 Nginx 反代：放行 `80`、`443`，**不要**对公网直接放行 `25500`。
+- 若直接暴露 25500（不推荐）：在云厂商安全组放行 25500。
+- 建议 systemd 方式用非 root 用户（示例用 `www-data`）运行。
+
+### 常见问题
+- **客户端拒绝订阅 / 必须 HTTPS**：多数客户端要求订阅地址为 HTTPS，请务必配置好证书。
+- **抓取远程订阅超时**：VPS 需能访问该订阅源；Nginx 已放宽 `proxy_read_timeout`。
+- **端口被占用**：改 `PORT` 环境变量（systemd 改 service 文件，Docker 改 compose 端口映射）。
+
+---
+
 ## ⚖️ 免责声明
 
 本工具仅用于学习交流与合法的网络调试用途。请遵守所在地法律法规及相关服务条款，因使用本工具产生的任何后果由使用者自行承担。
