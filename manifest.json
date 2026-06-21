@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "慕课自动刷课助手",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "自动播放视频课程，自动切换下一集",
   "permissions": ["activeTab", "storage", "scripting"],
   "host_permissions": ["*://*.mxdxedu.com/*"],
